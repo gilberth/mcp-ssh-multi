@@ -3,14 +3,19 @@
 import asyncio
 import logging
 import os
+import secrets
 import signal
 import sys
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Shutdown configuration
 SHUTDOWN_TIMEOUT_SECONDS = 2.0
+
+# Data directory for persisted state
+_DATA_DIR = Path.home() / ".ssh-mcp"
 
 # Global shutdown state
 _shutdown_event: asyncio.Event | None = None
@@ -65,6 +70,88 @@ def _setup_logging(log_level_str: str, force: bool = False) -> None:
         datefmt=_LOG_DATE_FORMAT,
         force=force,
     )
+
+
+# ---------------------------------------------------------------------------
+# Secret path management
+# ---------------------------------------------------------------------------
+
+
+def _generate_secret_path() -> str:
+    """Generate a secure random path with 128-bit entropy.
+
+    Format: /private_<22-char-urlsafe-token>
+    Example: /private_zctpwlX7ZkIAr7oqdfLPxw
+    """
+    return "/private_" + secrets.token_urlsafe(16)
+
+
+def _get_or_create_secret_path() -> str:
+    """Get existing secret path or create a new one.
+
+    Priority:
+        1. MCP_SECRET_PATH env var (explicit user override)
+        2. Persisted path in ~/.ssh-mcp/secret_path.txt (survives restarts)
+        3. Auto-generate, persist, and return a new random path
+
+    Returns:
+        The secret path to use for the HTTP endpoint.
+    """
+    # 1. Explicit env var override
+    env_path = os.getenv("MCP_SECRET_PATH", "").strip()
+    if env_path:
+        if not env_path.startswith("/"):
+            env_path = "/" + env_path
+        logger.info("Using secret path from MCP_SECRET_PATH env var")
+        return env_path
+
+    # 2. Check persisted file
+    secret_file = _DATA_DIR / "secret_path.txt"
+    if secret_file.exists():
+        try:
+            stored_path = secret_file.read_text().strip()
+            if stored_path:
+                logger.info("Using existing auto-generated secret path")
+                return stored_path
+        except Exception as e:
+            logger.error(f"Failed to read stored secret path: {e}")
+
+    # 3. Generate new secret path and persist
+    new_path = _generate_secret_path()
+    logger.info("Generated new secret path with 128-bit entropy")
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        secret_file.write_text(new_path)
+        logger.debug(f"Secret path persisted to {secret_file}")
+    except Exception as e:
+        logger.error(f"Failed to save secret path: {e}")
+        # Return the path anyway - it will work for this session
+
+    return new_path
+
+
+def _print_secret_path_banner(port: int, path: str) -> None:
+    """Print the secret path banner so the user can copy the URL."""
+    divider = "=" * 72
+    logger.info(divider)
+    logger.info("")
+    logger.info(f"  SSH MCP Server URL: http://<host>:{port}{path}")
+    logger.info("")
+    logger.info(f"     Secret Path: {path}")
+    logger.info("")
+    logger.info(
+        "  IMPORTANT: Copy this exact URL - the secret path is required!"
+    )
+    logger.info(
+        f"  This path is persisted to {_DATA_DIR / 'secret_path.txt'}"
+    )
+    logger.info("")
+    logger.info(divider)
+
+
+# ---------------------------------------------------------------------------
+# Graceful shutdown
+# ---------------------------------------------------------------------------
 
 
 async def _cleanup_resources() -> None:
@@ -250,10 +337,13 @@ async def _run_http_with_graceful_shutdown(
 def main_web() -> None:
     """Run server over HTTP for web-capable MCP clients.
 
+    The endpoint is protected with an auto-generated secret path.
+    Override with MCP_SECRET_PATH env var if needed.
+
     Environment:
     - SSH_SERVERS_FILE (optional, default: ssh_servers.yaml)
     - MCP_PORT (optional, default: 8086)
-    - MCP_SECRET_PATH (optional, default: "/mcp")
+    - MCP_SECRET_PATH (optional, overrides auto-generated path)
     """
     # Configure logging
     from ssh_mcp.config import get_global_settings
@@ -262,7 +352,10 @@ def main_web() -> None:
     _setup_logging(settings.log_level)
 
     port = int(os.getenv("MCP_PORT", "8086"))
-    path = os.getenv("MCP_SECRET_PATH", "/mcp")
+    path = _get_or_create_secret_path()
+
+    # Display the URL so the user can copy it
+    _print_secret_path_banner(port, path)
 
     # Set up signal handlers
     _setup_signal_handlers()
