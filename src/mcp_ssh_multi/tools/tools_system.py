@@ -4,6 +4,8 @@ System tools: ssh_tail_log, ssh_process_list.
 
 from __future__ import annotations
 
+import re
+import shlex
 from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import Field
@@ -15,6 +17,38 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
     from ..client.ssh_client import SSHConnectionPool
+
+
+_SAFE_PATH_RE = re.compile(r"^[a-zA-Z0-9_./-]+$")
+_SAFE_FILTER_RE = re.compile(r"^[a-zA-Z0-9_./-]+$")
+
+
+def _validate_log_path(path: str) -> str | None:
+    """Validate and sanitize a log file path.
+
+    Returns None if the path is safe, or an error message if not.
+    """
+    if not path or len(path) > 512:
+        return "Path is empty or too long (max 512 chars)"
+    if not path.startswith("/"):
+        return "Path must be absolute (start with /)"
+    if ".." in path:
+        return "Path traversal (..) is not allowed"
+    if not _SAFE_PATH_RE.match(path):
+        return "Path contains invalid characters (only alphanumerics, '.', '_', '-', '/' allowed)"
+    return None
+
+
+def _validate_filter_name(name: str) -> str | None:
+    """Validate a process filter name.
+
+    Returns None if the name is safe, or an error message if not.
+    """
+    if not name or len(name) > 128:
+        return "Filter is empty or too long (max 128 chars)"
+    if not _SAFE_FILTER_RE.match(name):
+        return "Filter contains invalid characters (only alphanumerics, '.', '_', '-', '/' allowed)"
+    return None
 
 
 def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
@@ -51,9 +85,23 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+
+        # Validate log_path to prevent command injection
+        path_error = _validate_log_path(log_path)
+        if path_error:
+            return {
+                "success": False,
+                "error": f"Invalid log path: {path_error}",
+                "error_code": "INVALID_INPUT",
+            }
+
+        # Clamp lines to a reasonable range
+        lines = max(1, min(lines, 10000))
+
         try:
+            safe_path = shlex.quote(log_path)
             result = await pool.execute(
-                server_name, f"tail -n {lines} {log_path}", timeout=15
+                server_name, f"tail -n {lines} {safe_path}", timeout=15
             )
             return {
                 "success": True,
@@ -94,7 +142,16 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
             return create_server_not_found_error(server_name)
         try:
             if filter_name:
-                cmd = f"ps aux | head -1; ps aux | grep -i '{filter_name}' | grep -v grep"
+                # Validate filter_name to prevent command injection
+                filter_error = _validate_filter_name(filter_name)
+                if filter_error:
+                    return {
+                        "success": False,
+                        "error": f"Invalid filter: {filter_error}",
+                        "error_code": "INVALID_INPUT",
+                    }
+                safe_filter = shlex.quote(filter_name)
+                cmd = f"ps aux | head -1; ps aux | grep -i {safe_filter} | grep -v grep"
             else:
                 cmd = "ps aux --sort=-%cpu | head -30"
 

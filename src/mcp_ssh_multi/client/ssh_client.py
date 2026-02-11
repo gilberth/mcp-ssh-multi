@@ -149,7 +149,11 @@ class SSHConnectionPool:
                 "host": config.host,
                 "port": config.port,
                 "username": config.username,
-                "known_hosts": None,  # Accept all host keys
+                # SECURITY NOTE: known_hosts=None disables host key verification.
+                # This makes connections vulnerable to MITM attacks. In production,
+                # consider setting known_hosts to a file path or using
+                # asyncssh.read_known_hosts() for proper host key verification.
+                "known_hosts": None,
             }
 
             if config.key_file:

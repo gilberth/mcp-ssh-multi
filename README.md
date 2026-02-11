@@ -162,47 +162,159 @@ For HTTP mode:
 | `ssh_tail_log` | Tail a log file on a remote server |
 | `ssh_process_list` | List running processes (optionally filtered) |
 
-## Cloudflare Tunnel Deployment
+## Production Deployment (LXC + Cloudflare Tunnel)
 
-You can expose the HTTP mode behind a Cloudflare Tunnel for secure remote access. The tunnel is **not part of this package** — it runs separately.
+Full deployment guide for running mcp-ssh-multi as a systemd service behind a Cloudflare Tunnel on a Proxmox LXC container.
 
-### Quick Start
+### Prerequisites
+
+- A Proxmox LXC container (Debian 12/13)
+- A Cloudflare account with a domain
+- `uv` and `cloudflared` installed on the LXC
+
+### 1. Install dependencies
 
 ```bash
-# 1. Start ssh-mcp-web
-SSH_SERVERS_FILE=/path/to/ssh_servers.yaml ssh-mcp-web
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. In another terminal, start the tunnel
-cloudflared tunnel --url http://localhost:8086
+# Install cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+  -o cloudflared.deb && dpkg -i cloudflared.deb
 ```
 
-### Permanent Tunnel
+### 2. Create SSH servers config
 
 ```bash
-# Create a named tunnel
+mkdir -p /ssh-mcp
+cat > /ssh-mcp/ssh_servers.yaml << 'EOF'
+servers:
+  my-server:
+    host: 192.168.1.100
+    port: 22
+    username: root
+    password: "my-password"  # or use key_file
+    description: "My server"
+EOF
+```
+
+### 3. Create the Cloudflare Tunnel
+
+```bash
+# Login to Cloudflare (opens browser)
+cloudflared tunnel login
+
+# Create the named tunnel
 cloudflared tunnel create ssh-mcp
+
+# Route DNS to your domain
 cloudflared tunnel route dns ssh-mcp ssh-mcp.yourdomain.com
-
-# Configure the tunnel (config.yml)
-# tunnel: <tunnel-id>
-# credentials-file: /root/.cloudflared/<tunnel-id>.json
-# ingress:
-#   - hostname: ssh-mcp.yourdomain.com
-#     service: http://localhost:8086
-#   - service: http_status:404
-
-# Run it
-cloudflared tunnel run ssh-mcp
 ```
 
-Then configure your MCP client to connect to `https://ssh-mcp.yourdomain.com/mcp`.
+### 4. Configure the tunnel
 
-### Environment Variables for Tunnel
+The `tunnel create` command outputs the tunnel UUID (e.g. `2687c640-38df-40f9-...`) and creates a credentials file at `/root/.cloudflared/<TUNNEL-ID>.json`. If you need to find it later, run `cloudflared tunnel list`.
 
 ```bash
-MCP_PORT=8086           # Port the HTTP server listens on
-MCP_SECRET_PATH=/mcp    # Endpoint path (change for obscurity)
+# Replace <TUNNEL-ID> with the UUID from "cloudflared tunnel create" output
+cat > /root/.cloudflared/config.yml << 'EOF'
+tunnel: <TUNNEL-ID>
+credentials-file: /root/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: ssh-mcp.yourdomain.com
+    service: http://localhost:8086
+  - service: http_status:404
+EOF
 ```
+
+### 5. Create systemd services
+
+**mcp-ssh-multi service:**
+
+```bash
+cat > /etc/systemd/system/mcp-ssh-multi.service << 'EOF'
+[Unit]
+Description=MCP SSH Multi Server
+After=network.target
+
+[Service]
+Type=simple
+Environment=SSH_SERVERS_FILE=/ssh-mcp/ssh_servers.yaml
+Environment=MCP_SECRET_PATH=/your-secret-path
+ExecStart=/root/.local/bin/uvx --from mcp-ssh-multi@latest ssh-mcp-web
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+**cloudflared service:**
+
+```bash
+cloudflared service install
+```
+
+**Enable and start both:**
+
+```bash
+systemctl daemon-reload
+systemctl enable --now mcp-ssh-multi
+systemctl enable --now cloudflared
+```
+
+### 6. Verify
+
+```bash
+# Check services
+systemctl status mcp-ssh-multi
+systemctl status cloudflared
+
+# Test the endpoint
+curl -s -X POST "https://ssh-mcp.yourdomain.com/your-secret-path" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+```
+
+### 7. Configure your MCP client
+
+```json
+{
+  "mcpServers": {
+    "ssh": {
+      "type": "remote",
+      "url": "https://ssh-mcp.yourdomain.com/your-secret-path"
+    }
+  }
+}
+```
+
+### Service management
+
+```bash
+# View logs
+journalctl -u mcp-ssh-multi -f
+journalctl -u cloudflared -f
+
+# Restart services
+systemctl restart mcp-ssh-multi
+systemctl restart cloudflared
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SSH_SERVERS_FILE` | `ssh_servers.yaml` | Path to servers config |
+| `SSH_TIMEOUT` | `30` | Default command timeout (seconds) |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `MCP_PORT` | `8086` | HTTP server port |
+| `MCP_SECRET_PATH` | `/mcp` | HTTP endpoint path (use a secret value) |
 
 ## Development
 

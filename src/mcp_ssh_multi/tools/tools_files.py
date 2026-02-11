@@ -15,7 +15,7 @@ from ..errors import (
     create_server_not_found_error,
     exception_to_structured_error,
 )
-from .helpers import log_tool_usage
+from .helpers import log_tool_usage, validate_remote_path
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -46,6 +46,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             result = await pool.upload_file(server_name, local_path, remote_path)
             return {"success": True, "server_name": server_name, **result}
@@ -80,6 +87,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             result = await pool.download_file(server_name, remote_path, local_path)
             return {"success": True, "server_name": server_name, **result}
@@ -107,6 +121,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             result = await pool.file_exists(server_name, remote_path)
             return {"success": True, "server_name": server_name, **result}
@@ -139,6 +160,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             entries = await pool.list_dir(server_name, remote_path)
             return {
@@ -181,6 +209,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             content = await pool.read_file(server_name, remote_path, max_size=max_size)
             return {
@@ -217,6 +252,13 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
+        path_err = validate_remote_path(remote_path)
+        if path_err:
+            return create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"Invalid remote path: {path_err}",
+                context={"remote_path": remote_path},
+            )
         try:
             result = await pool.write_file(server_name, remote_path, content)
             return {"success": True, "server_name": server_name, **result}

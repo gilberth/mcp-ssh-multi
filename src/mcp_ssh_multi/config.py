@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # MCP Server configuration
     mcp_server_name: str = Field("ssh-mcp", alias="MCP_SERVER_NAME")
-    mcp_server_version: str = Field("0.1.0", alias="MCP_SERVER_VERSION")
+    mcp_server_version: str = Field("0.1.1", alias="MCP_SERVER_VERSION")
 
     @field_validator("log_level")
     @classmethod
