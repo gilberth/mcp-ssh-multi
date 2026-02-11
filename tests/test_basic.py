@@ -8,8 +8,8 @@ import pytest
 class TestSSHMCPServer:
     """Tests for SSHMCPServer initialization."""
 
-    @patch("ssh_mcp.server.get_global_settings")
-    @patch("ssh_mcp.server.FastMCP")
+    @patch("mcp_ssh_multi.server.get_global_settings")
+    @patch("mcp_ssh_multi.server.FastMCP")
     def test_server_creation(self, mock_fastmcp, mock_settings):
         """Server creates with settings and FastMCP."""
         mock_settings.return_value = MagicMock(
@@ -20,7 +20,7 @@ class TestSSHMCPServer:
         mock_mcp_instance = MagicMock()
         mock_fastmcp.return_value = mock_mcp_instance
 
-        from ssh_mcp.server import SSHMCPServer
+        from mcp_ssh_multi.server import SSHMCPServer
 
         server = SSHMCPServer()
 
@@ -36,7 +36,7 @@ class TestErrorCodes:
 
     def test_create_error_response(self):
         """Error response has correct structure."""
-        from ssh_mcp.errors import ErrorCode, create_error_response
+        from mcp_ssh_multi.errors import ErrorCode, create_error_response
 
         result = create_error_response(
             ErrorCode.CONNECTION_FAILED,
@@ -49,7 +49,7 @@ class TestErrorCodes:
 
     def test_create_server_not_found_error(self):
         """Server not found error includes server name."""
-        from ssh_mcp.errors import create_server_not_found_error
+        from mcp_ssh_multi.errors import create_server_not_found_error
 
         result = create_server_not_found_error("nonexistent")
 
@@ -59,7 +59,7 @@ class TestErrorCodes:
 
     def test_exception_to_structured_error_timeout(self):
         """Timeout exceptions map to TIMEOUT error code."""
-        from ssh_mcp.errors import exception_to_structured_error
+        from mcp_ssh_multi.errors import exception_to_structured_error
 
         result = exception_to_structured_error(TimeoutError("connection timeout"))
 
@@ -68,7 +68,7 @@ class TestErrorCodes:
 
     def test_exception_to_structured_error_generic(self):
         """Generic exceptions map to INTERNAL_ERROR."""
-        from ssh_mcp.errors import exception_to_structured_error
+        from mcp_ssh_multi.errors import exception_to_structured_error
 
         result = exception_to_structured_error(RuntimeError("something broke"))
 
@@ -81,7 +81,7 @@ class TestConfig:
 
     def test_default_settings(self):
         """Default settings are valid."""
-        from ssh_mcp.config import Settings
+        from mcp_ssh_multi.config import Settings
 
         settings = Settings()  # type: ignore[call-arg]
 
@@ -91,7 +91,7 @@ class TestConfig:
 
     def test_log_level_validation(self):
         """Invalid log levels are rejected."""
-        from ssh_mcp.config import Settings
+        from mcp_ssh_multi.config import Settings
 
         with pytest.raises(ValueError):
             Settings(LOG_LEVEL="INVALID")  # type: ignore[call-arg]
@@ -102,7 +102,7 @@ class TestSSHConnectionPool:
 
     def test_from_yaml_missing_file(self):
         """Missing YAML file returns empty pool."""
-        from ssh_mcp.client.ssh_client import SSHConnectionPool
+        from mcp_ssh_multi.client.ssh_client import SSHConnectionPool
 
         pool = SSHConnectionPool.from_yaml("/nonexistent/path.yaml")
 
@@ -110,7 +110,7 @@ class TestSSHConnectionPool:
 
     def test_list_servers_empty(self):
         """Empty pool returns empty list."""
-        from ssh_mcp.client.ssh_client import SSHConnectionPool
+        from mcp_ssh_multi.client.ssh_client import SSHConnectionPool
 
         pool = SSHConnectionPool()
 
@@ -118,7 +118,7 @@ class TestSSHConnectionPool:
 
     def test_get_server_config_not_found(self):
         """Non-existent server returns None."""
-        from ssh_mcp.client.ssh_client import SSHConnectionPool
+        from mcp_ssh_multi.client.ssh_client import SSHConnectionPool
 
         pool = SSHConnectionPool()
 

@@ -1,4 +1,4 @@
-"""SSH MCP Server - Entry points for stdio and HTTP transports."""
+"""MCP SSH Multi - Entry points for stdio and HTTP transports."""
 
 import asyncio
 import logging
@@ -27,7 +27,7 @@ _server = None
 
 def _create_server() -> Any:
     """Create server instance (deferred to avoid import during smoke test)."""
-    from ssh_mcp.server import SSHMCPServer
+    from mcp_ssh_multi.server import SSHMCPServer
 
     return SSHMCPServer()
 
@@ -55,7 +55,7 @@ class _DeferredMCP:
         return _get_mcp().run(*args, **kwargs)
 
 
-# For module-level access (e.g., fastmcp referencing ssh_mcp.__main__:mcp)
+# For module-level access (e.g., fastmcp referencing mcp_ssh_multi.__main__:mcp)
 mcp = _DeferredMCP()
 
 
@@ -251,11 +251,11 @@ def main() -> None:
     if "--version" in sys.argv or "-V" in sys.argv:
         from importlib.metadata import version
 
-        print(f"ssh-mcp {version('ssh-mcp-server')}")
+        print(f"mcp-ssh-multi {version('mcp-ssh-multi')}")
         sys.exit(0)
 
     # Configure logging before server creation
-    from ssh_mcp.config import get_global_settings
+    from mcp_ssh_multi.config import get_global_settings
 
     settings = get_global_settings()
     _setup_logging(settings.log_level)
@@ -346,7 +346,7 @@ def main_web() -> None:
     - MCP_SECRET_PATH (optional, overrides auto-generated path)
     """
     # Configure logging
-    from ssh_mcp.config import get_global_settings
+    from mcp_ssh_multi.config import get_global_settings
 
     settings = get_global_settings()
     _setup_logging(settings.log_level)

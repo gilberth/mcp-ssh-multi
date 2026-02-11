@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ssh-mcp-server"
+name = "mcp-ssh-multi"
 version = "0.1.0"
-description = "SSH MCP Server - Multi-server SSH access through MCP"
+description = "MCP SSH Multi - Multi-server SSH access through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 license = {text = "MIT"}
@@ -33,20 +33,20 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/gilberth/ssh-mcp-server"
-"Bug Tracker" = "https://github.com/gilberth/ssh-mcp-server/issues"
-"Repository" = "https://github.com/gilberth/ssh-mcp-server"
+"Homepage" = "https://github.com/gilberth/mcp-ssh-multi"
+"Bug Tracker" = "https://github.com/gilberth/mcp-ssh-multi/issues"
+"Repository" = "https://github.com/gilberth/mcp-ssh-multi"
 
 [project.scripts]
-ssh-mcp = "ssh_mcp.__main__:main"
-ssh-mcp-web = "ssh_mcp.__main__:main_web"
+ssh-mcp = "mcp_ssh_multi.__main__:main"
+ssh-mcp-web = "mcp_ssh_multi.__main__:main_web"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 packages = { find = { where = ["src"] } }
 
 [tool.setuptools.package-data]
-ssh_mcp = ["py.typed"]
+mcp_ssh_multi = ["py.typed"]
 
 [tool.black]
 line-length = 88
@@ -56,12 +56,12 @@ target-version = ['py313']
 profile = "black"
 multi_line_output = 3
 line_length = 88
-known_first_party = ["ssh_mcp"]
+known_first_party = ["mcp_ssh_multi"]
 
 [tool.mypy]
 python_version = "3.13"
 mypy_path = "src"
-packages = ["ssh_mcp"]
+packages = ["mcp_ssh_multi"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

@@ -1,4 +1,4 @@
-# ssh-mcp-server
+# mcp-ssh-multi
 
 MCP server for managing multiple SSH servers through AI assistants. Provides 11 tools for remote command execution, file operations, and system monitoring.
 
@@ -15,26 +15,26 @@ MCP server for managing multiple SSH servers through AI assistants. Provides 11 
 ### Using uv (recommended)
 
 ```bash
-uv tool install ssh-mcp-server
+uv tool install mcp-ssh-multi
 ```
 
 ### Using pip
 
 ```bash
-pip install ssh-mcp-server
+pip install mcp-ssh-multi
 ```
 
 ### Using uvx (one-shot)
 
 ```bash
-uvx --from ssh-mcp-server ssh-mcp
+uvx --from mcp-ssh-multi ssh-mcp
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/gilberth/ssh-mcp-server.git
-cd ssh-mcp-server
+git clone https://github.com/gilberth/mcp-ssh-multi.git
+cd mcp-ssh-multi
 uv sync
 ```
 
@@ -88,7 +88,7 @@ ssh-mcp
 Or with uvx:
 
 ```bash
-uvx --from ssh-mcp-server ssh-mcp
+uvx --from mcp-ssh-multi ssh-mcp
 ```
 
 ### HTTP mode (web/remote MCP clients)
@@ -108,7 +108,7 @@ Add to your MCP client config (e.g., Claude Desktop):
   "mcpServers": {
     "ssh": {
       "command": "uvx",
-      "args": ["--from", "ssh-mcp-server", "ssh-mcp"],
+      "args": ["--from", "mcp-ssh-multi", "ssh-mcp"],
       "env": {
         "SSH_SERVERS_FILE": "/path/to/ssh_servers.yaml"
       }
