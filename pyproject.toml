@@ -1,0 +1,127 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssh-mcp-server"
+version = "0.1.0"
+description = "SSH MCP Server - Multi-server SSH access through MCP"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+license = {text = "MIT"}
+authors = [
+    {name = "Gilberth"}
+]
+keywords = ["mcp", "ssh", "ai", "automation", "server-management"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "fastmcp>=2.11.0",
+    "asyncssh>=2.18.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/gilberth/ssh-mcp-server"
+"Bug Tracker" = "https://github.com/gilberth/ssh-mcp-server/issues"
+"Repository" = "https://github.com/gilberth/ssh-mcp-server"
+
+[project.scripts]
+ssh-mcp = "ssh_mcp.__main__:main"
+ssh-mcp-web = "ssh_mcp.__main__:main_web"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = { find = { where = ["src"] } }
+
+[tool.setuptools.package-data]
+ssh_mcp = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py313']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["ssh_mcp"]
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "src"
+packages = ["ssh_mcp"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "fastmcp.*",
+    "asyncssh.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "RUF100", # unused noqa
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*" = ["E501", "B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+]
+asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "black>=23.0.0",
+    "mypy>=1.17.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.1.0",
+    "ruff>=0.12.12",
+    "types-PyYAML>=6.0",
+]

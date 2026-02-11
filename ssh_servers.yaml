@@ -1,0 +1,32 @@
+# SSH Servers Configuration
+# Define your SSH servers here. Each server needs at minimum a name and host.
+# Authentication: use key_file (recommended) or password.
+
+servers:
+  proxmox:
+    host: 192.168.1.100
+    port: 22
+    username: root
+    key_file: ~/.ssh/id_rsa
+    description: "Proxmox VE hypervisor"
+
+  truenas:
+    host: 192.168.1.101
+    port: 22
+    username: root
+    key_file: ~/.ssh/id_rsa
+    description: "TrueNAS storage server"
+
+  pbs:
+    host: 192.168.1.102
+    port: 22
+    username: root
+    key_file: ~/.ssh/id_rsa
+    description: "Proxmox Backup Server"
+
+  raspberry:
+    host: 192.168.1.103
+    port: 22
+    username: pi
+    key_file: ~/.ssh/id_rsa
+    description: "Raspberry Pi"
