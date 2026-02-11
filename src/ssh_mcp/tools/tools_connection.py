@@ -21,7 +21,12 @@ def register_connection_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
 
     @mcp.tool(annotations={"readOnlyHint": True})
     @log_tool_usage
-    async def ssh_list_servers() -> dict[str, Any]:
+    async def ssh_list_servers(
+        _placeholder: Annotated[
+            bool,
+            Field(description="Placeholder. Always pass true."),
+        ] = True,
+    ) -> dict[str, Any]:
         """List all configured SSH servers with connection status.
 
         Returns server names, hosts, usernames, descriptions, and whether
