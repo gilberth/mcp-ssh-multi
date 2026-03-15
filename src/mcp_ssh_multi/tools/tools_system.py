@@ -54,7 +54,7 @@ def _validate_filter_name(name: str) -> str | None:
 def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     """Register system monitoring tools."""
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_tail_log(
         server_name: Annotated[
@@ -116,7 +116,7 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "log_path": log_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_process_list(
         server_name: Annotated[

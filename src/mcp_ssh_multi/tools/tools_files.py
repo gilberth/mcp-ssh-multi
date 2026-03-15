@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     """Register file operation tools."""
 
-    @mcp.tool()
+    @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_upload(
         server_name: Annotated[
@@ -67,7 +67,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name}
             )
 
-    @mcp.tool()
+    @mcp.tool(annotations={"openWorldHint": True})
     @log_tool_usage
     async def ssh_download(
         server_name: Annotated[
@@ -102,7 +102,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_file_exists(
         server_name: Annotated[
@@ -136,7 +136,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_list_dir(
         server_name: Annotated[
@@ -181,7 +181,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_read_file(
         server_name: Annotated[
@@ -230,7 +230,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool()
+    @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_write_file(
         server_name: Annotated[

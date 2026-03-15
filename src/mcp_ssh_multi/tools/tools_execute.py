@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def register_execute_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     """Register command execution tools."""
 
-    @mcp.tool()
+    @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_execute(
         server_name: Annotated[

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def register_connection_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     """Register connection management tools."""
 
-    @mcp.tool(annotations={"readOnlyHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_list_servers(
         _placeholder: Annotated[
@@ -42,7 +42,7 @@ def register_connection_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
             "total": len(servers),
         }
 
-    @mcp.tool(annotations={"idempotentHint": True})
+    @mcp.tool(annotations={"idempotentHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_disconnect(
         server_name: Annotated[
