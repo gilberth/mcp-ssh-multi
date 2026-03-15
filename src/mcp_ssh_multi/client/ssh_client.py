@@ -53,7 +53,13 @@ class SSHConnectionPool:
     _connections: dict[str, asyncssh.SSHClientConnection] = field(
         default_factory=dict, repr=False
     )
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    _locks: dict[str, asyncio.Lock] = field(default_factory=dict, repr=False)
+
+    def _get_server_lock(self, server_name: str) -> asyncio.Lock:
+        """Get or create a lock for a specific server."""
+        if server_name not in self._locks:
+            self._locks[server_name] = asyncio.Lock()
+        return self._locks[server_name]
 
     @classmethod
     def from_yaml(cls, config_path: str) -> SSHConnectionPool:
@@ -130,7 +136,8 @@ class SSHConnectionPool:
             ValueError: If the server is not configured.
             asyncssh.Error: If the connection fails.
         """
-        async with self._lock:
+        lock = self._get_server_lock(server_name)
+        async with lock:
             # Check for existing valid connection
             if server_name in self._connections:
                 conn = self._connections[server_name]
@@ -184,7 +191,8 @@ class SSHConnectionPool:
         Returns:
             True if disconnected, False if not connected.
         """
-        async with self._lock:
+        lock = self._get_server_lock(server_name)
+        async with lock:
             conn = self._connections.pop(server_name, None)
             if conn is not None:
                 conn.close()
@@ -194,23 +202,20 @@ class SSHConnectionPool:
 
     async def disconnect_all(self) -> None:
         """Disconnect from all servers."""
-        async with self._lock:
-            for name, conn in self._connections.items():
-                try:
-                    conn.close()
-                    logger.debug(f"Disconnected from {name}")
-                except Exception as e:
-                    logger.warning(f"Error disconnecting from {name}: {e}")
-            self._connections.clear()
-            logger.info("Disconnected from all servers")
+        for name in list(self._connections.keys()):
+            await self.disconnect(name)
+        logger.info("Disconnected from all servers")
 
     async def execute(
         self,
         server_name: str,
         command: str,
         timeout: int = 30,
+        _retried: bool = False,
     ) -> dict[str, Any]:
         """Execute a command on a remote server.
+
+        Retries once on connection failure (stale connection).
 
         Args:
             server_name: Name of the server to execute on.
@@ -231,6 +236,16 @@ class SSHConnectionPool:
             raise TimeoutError(
                 f"Command timed out after {timeout}s on {server_name}: {command}"
             ) from err
+        except (asyncssh.ConnectionLost, asyncssh.DisconnectError, OSError) as err:
+            if _retried:
+                raise
+            # Remove stale connection and retry once
+            logger.warning(f"Connection lost to {server_name}, retrying: {err}")
+            async with self._get_server_lock(server_name):
+                self._connections.pop(server_name, None)
+            return await self.execute(
+                server_name, command, timeout=timeout, _retried=True
+            )
 
         return {
             "stdout": result.stdout or "",
