@@ -1,12 +1,11 @@
 """Tests for connection retry and per-server locking."""
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncssh
 import pytest
 
-from mcp_ssh_multi.client.ssh_client import SSHConnectionPool, ServerConfig
+from mcp_ssh_multi.client.ssh_client import ServerConfig, SSHConnectionPool
 
 
 class TestPerServerLock:

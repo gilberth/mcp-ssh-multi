@@ -106,7 +106,9 @@ class SSHConnectionPool:
         """
         result = []
         for name, config in self.servers.items():
-            connected = name in self._connections and not self._connections[name].is_closed()
+            connected = (
+                name in self._connections and not self._connections[name].is_closed()
+            )
             result.append(
                 {
                     "name": name,
@@ -353,7 +355,11 @@ class SSHConnectionPool:
             async with sftp.open(remote_path, "r") as f:
                 content = await f.read()
 
-        return content if isinstance(content, str) else content.decode("utf-8", errors="replace")
+        return (
+            content
+            if isinstance(content, str)
+            else content.decode("utf-8", errors="replace")
+        )
 
     async def write_file(
         self,
@@ -409,7 +415,9 @@ class SSHConnectionPool:
                     "path": remote_path,
                     "is_dir": attrs.type == asyncssh.FILEXFER_TYPE_DIRECTORY,
                     "size": attrs.size,
-                    "permissions": oct(attrs.permissions) if attrs.permissions else None,
+                    "permissions": oct(attrs.permissions)
+                    if attrs.permissions
+                    else None,
                 }
             except (asyncssh.SFTPNoSuchFile, asyncssh.SFTPError):
                 return {"exists": False, "path": remote_path}
@@ -445,7 +453,9 @@ class SSHConnectionPool:
                         if attrs.type is not None
                         else None,
                         "size": attrs.size,
-                        "permissions": oct(attrs.permissions) if attrs.permissions else None,
+                        "permissions": oct(attrs.permissions)
+                        if attrs.permissions
+                        else None,
                     }
                 )
 

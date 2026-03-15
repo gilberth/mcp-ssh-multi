@@ -51,7 +51,9 @@ class ToolsRegistry:
 
         for module_name in self._discovered_modules:
             try:
-                module = importlib.import_module(f".{module_name}", "mcp_ssh_multi.tools")
+                module = importlib.import_module(
+                    f".{module_name}", "mcp_ssh_multi.tools"
+                )
 
                 # Find the register function (convention: register_*_tools)
                 register_func = None

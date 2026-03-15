@@ -139,12 +139,8 @@ def _print_secret_path_banner(port: int, path: str) -> None:
     logger.info("")
     logger.info(f"     Secret Path: {path}")
     logger.info("")
-    logger.info(
-        "  IMPORTANT: Copy this exact URL - the secret path is required!"
-    )
-    logger.info(
-        f"  This path is persisted to {_DATA_DIR / 'secret_path.txt'}"
-    )
+    logger.info("  IMPORTANT: Copy this exact URL - the secret path is required!")
+    logger.info(f"  This path is persisted to {_DATA_DIR / 'secret_path.txt'}")
     logger.info("")
     logger.info(divider)
 

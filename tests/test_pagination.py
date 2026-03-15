@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import asyncssh
 import pytest
 
-from mcp_ssh_multi.client.ssh_client import SSHConnectionPool, ServerConfig
+from mcp_ssh_multi.client.ssh_client import ServerConfig, SSHConnectionPool
 
 
 class AsyncIteratorMock:
@@ -21,7 +21,7 @@ class AsyncIteratorMock:
         try:
             return next(self.items)
         except StopIteration:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
 
 def _make_dir_entry(name: str, is_dir: bool = False):
@@ -49,9 +49,7 @@ def _make_pool_with_mock_sftp(entries):
     mock_conn.start_sftp_client.return_value.__aenter__ = AsyncMock(
         return_value=mock_sftp
     )
-    mock_conn.start_sftp_client.return_value.__aexit__ = AsyncMock(
-        return_value=False
-    )
+    mock_conn.start_sftp_client.return_value.__aexit__ = AsyncMock(return_value=False)
     mock_conn.is_closed.return_value = False
     pool._connections["test"] = mock_conn
 

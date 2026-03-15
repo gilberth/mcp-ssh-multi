@@ -30,9 +30,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # SSH servers configuration file path
-    ssh_servers_file: str = Field(
-        "ssh_servers.yaml", alias="SSH_SERVERS_FILE"
-    )
+    ssh_servers_file: str = Field("ssh_servers.yaml", alias="SSH_SERVERS_FILE")
 
     # Server configuration
     timeout: int = Field(30, alias="SSH_TIMEOUT")

@@ -120,7 +120,9 @@ def create_error_response(
     Returns:
         Structured error response dictionary with success=False.
     """
-    error_suggestions = suggestions if suggestions else DEFAULT_SUGGESTIONS.get(code, [])
+    error_suggestions = (
+        suggestions if suggestions else DEFAULT_SUGGESTIONS.get(code, [])
+    )
 
     error_dict: dict[str, Any] = {
         "code": code.value,
@@ -187,9 +189,7 @@ def create_command_error(
         context["exit_code"] = exit_code
     if stderr:
         context["stderr"] = stderr
-    return create_error_response(
-        ErrorCode.COMMAND_FAILED, message, context=context
-    )
+    return create_error_response(ErrorCode.COMMAND_FAILED, message, context=context)
 
 
 def create_validation_error(

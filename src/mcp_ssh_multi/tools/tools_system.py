@@ -61,9 +61,7 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_tail_log(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
         log_path: Annotated[
             str,
             Field(
@@ -122,9 +120,7 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_process_list(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
         filter_name: Annotated[
             str | None,
             Field(

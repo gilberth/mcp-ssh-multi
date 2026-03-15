@@ -29,15 +29,9 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_upload(
-        server_name: Annotated[
-            str, Field(description="Target server name")
-        ],
-        local_path: Annotated[
-            str, Field(description="Local file path to upload")
-        ],
-        remote_path: Annotated[
-            str, Field(description="Remote destination path")
-        ],
+        server_name: Annotated[str, Field(description="Target server name")],
+        local_path: Annotated[str, Field(description="Local file path to upload")],
+        remote_path: Annotated[str, Field(description="Remote destination path")],
     ) -> dict[str, Any]:
         """Upload a file to a remote server via SFTP.
 
@@ -70,15 +64,9 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"openWorldHint": True})
     @log_tool_usage
     async def ssh_download(
-        server_name: Annotated[
-            str, Field(description="Source server name")
-        ],
-        remote_path: Annotated[
-            str, Field(description="Remote file path to download")
-        ],
-        local_path: Annotated[
-            str, Field(description="Local destination path")
-        ],
+        server_name: Annotated[str, Field(description="Source server name")],
+        remote_path: Annotated[str, Field(description="Remote file path to download")],
+        local_path: Annotated[str, Field(description="Local destination path")],
     ) -> dict[str, Any]:
         """Download a file from a remote server via SFTP.
 
@@ -105,12 +93,8 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_file_exists(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
-        remote_path: Annotated[
-            str, Field(description="Remote path to check")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
+        remote_path: Annotated[str, Field(description="Remote path to check")],
     ) -> dict[str, Any]:
         """Check if a file or directory exists on a remote server.
 
@@ -139,9 +123,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_list_dir(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
         remote_path: Annotated[
             str,
             Field(
@@ -201,12 +183,8 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_read_file(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
-        remote_path: Annotated[
-            str, Field(description="Remote file path to read")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
+        remote_path: Annotated[str, Field(description="Remote file path to read")],
         max_size: Annotated[
             int,
             Field(
@@ -250,15 +228,9 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
     @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
     @log_tool_usage
     async def ssh_write_file(
-        server_name: Annotated[
-            str, Field(description="Server name")
-        ],
-        remote_path: Annotated[
-            str, Field(description="Remote file path to write")
-        ],
-        content: Annotated[
-            str, Field(description="Content to write to the file")
-        ],
+        server_name: Annotated[str, Field(description="Server name")],
+        remote_path: Annotated[str, Field(description="Remote file path to write")],
+        content: Annotated[str, Field(description="Content to write to the file")],
     ) -> dict[str, Any]:
         """Write content to a file on a remote server.
 
