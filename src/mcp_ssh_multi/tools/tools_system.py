@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import Field
 
-from ..errors import create_server_not_found_error, exception_to_structured_error
+from ..errors import (
+    create_server_not_found_error,
+    create_validation_error,
+    exception_to_structured_error,
+)
 from .helpers import log_tool_usage
 
 if TYPE_CHECKING:
@@ -89,11 +93,10 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         # Validate log_path to prevent command injection
         path_error = _validate_log_path(log_path)
         if path_error:
-            return {
-                "success": False,
-                "error": f"Invalid log path: {path_error}",
-                "error_code": "INVALID_INPUT",
-            }
+            return create_validation_error(
+                f"Invalid log path: {path_error}",
+                parameter="log_path",
+            )
 
         # Clamp lines to a reasonable range
         lines = max(1, min(lines, 10000))
@@ -145,11 +148,10 @@ def register_system_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 # Validate filter_name to prevent command injection
                 filter_error = _validate_filter_name(filter_name)
                 if filter_error:
-                    return {
-                        "success": False,
-                        "error": f"Invalid filter: {filter_error}",
-                        "error_code": "INVALID_INPUT",
-                    }
+                    return create_validation_error(
+                        f"Invalid filter: {filter_error}",
+                        parameter="filter_name",
+                    )
                 safe_filter = shlex.quote(filter_name)
                 cmd = f"ps aux | head -1; ps aux | grep -i {safe_filter} | grep -v grep"
             else:
