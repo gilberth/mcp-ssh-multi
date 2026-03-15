@@ -123,3 +123,24 @@ class TestSSHConnectionPool:
         pool = SSHConnectionPool()
 
         assert pool.get_server_config("nonexistent") is None
+
+
+class TestVersionConsistency:
+    """Tests for version consistency."""
+
+    def test_version_matches_pyproject(self):
+        """Package version matches pyproject.toml."""
+        from importlib.metadata import version
+
+        import mcp_ssh_multi
+
+        pkg_version = version("mcp-ssh-multi")
+        assert mcp_ssh_multi.__version__ == pkg_version
+
+    def test_settings_version_matches_package(self):
+        """Settings default version matches package version."""
+        import mcp_ssh_multi
+        from mcp_ssh_multi.config import Settings
+
+        settings = Settings()  # type: ignore[call-arg]
+        assert settings.mcp_server_version == mcp_ssh_multi.__version__

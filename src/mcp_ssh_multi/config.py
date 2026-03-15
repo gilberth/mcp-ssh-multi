@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from mcp_ssh_multi import __version__
+
 project_root = Path(__file__).parent.parent.parent
 
 # Support for different environment files via SSH_MCP_ENV_FILE
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
 
     # MCP Server configuration
     mcp_server_name: str = Field("ssh-mcp", alias="MCP_SERVER_NAME")
-    mcp_server_version: str = Field("0.1.1", alias="MCP_SERVER_VERSION")
+    mcp_server_version: str = Field(__version__, alias="MCP_SERVER_VERSION")
 
     @field_validator("log_level")
     @classmethod
