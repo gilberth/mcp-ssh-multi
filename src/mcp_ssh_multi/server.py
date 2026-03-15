@@ -74,6 +74,26 @@ class SSHMCPServer:
     def _initialize_server(self) -> None:
         """Initialize all server components."""
         self.tools_registry.register_all_tools()
+        self._register_resources()
+
+    def _register_resources(self) -> None:
+        """Register MCP resources."""
+        pool = self.pool
+
+        @self.mcp.resource("ssh://servers")
+        def get_servers_resource() -> str:
+            """List of configured SSH servers and their details."""
+            servers = pool.list_servers()
+            lines = ["# Configured SSH Servers\n"]
+            for s in servers:
+                status = "connected" if s["connected"] else "disconnected"
+                lines.append(
+                    f"- **{s['name']}**: {s['host']}:{s['port']} "
+                    f"(user: {s['username']}, {status})"
+                )
+                if s["description"]:
+                    lines.append(f"  {s['description']}")
+            return "\n".join(lines)
 
     async def close(self) -> None:
         """Close the MCP server and cleanup resources."""
