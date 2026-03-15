@@ -149,14 +149,30 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 default=".",
             ),
         ] = ".",
+        limit: Annotated[
+            int,
+            Field(
+                description="Max entries to return, 0 for all (default: 200)",
+                default=200,
+            ),
+        ] = 200,
+        offset: Annotated[
+            int,
+            Field(
+                description="Number of entries to skip (default: 0)",
+                default=0,
+            ),
+        ] = 0,
     ) -> dict[str, Any]:
         """List contents of a remote directory.
 
         Returns file names, types, sizes, and permissions.
+        Supports pagination with limit/offset for large directories.
 
         EXAMPLES:
         - ssh_list_dir("truenas", "/mnt/data")
         - ssh_list_dir("proxmox")  # lists home directory
+        - ssh_list_dir("proxmox", "/var/log", limit=50, offset=100)
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
@@ -168,13 +184,14 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 context={"remote_path": remote_path},
             )
         try:
-            entries = await pool.list_dir(server_name, remote_path)
+            result = await pool.list_dir(
+                server_name, remote_path, limit=limit, offset=offset
+            )
             return {
                 "success": True,
                 "server_name": server_name,
                 "path": remote_path,
-                "entries": entries,
-                "total": len(entries),
+                **result,
             }
         except Exception as e:
             return exception_to_structured_error(

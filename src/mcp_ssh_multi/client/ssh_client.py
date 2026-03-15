@@ -418,23 +418,27 @@ class SSHConnectionPool:
         self,
         server_name: str,
         remote_path: str = ".",
-    ) -> list[dict[str, Any]]:
-        """List contents of a remote directory.
+        limit: int = 0,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List contents of a remote directory with optional pagination.
 
         Args:
             server_name: Server name.
             remote_path: Remote directory path (default: current dir).
+            limit: Max entries to return (0 = all).
+            offset: Number of entries to skip.
 
         Returns:
-            List of file/directory info dictionaries.
+            Dictionary with entries list, total count, and has_more flag.
         """
         conn = await self.connect(server_name)
 
-        entries = []
+        all_entries: list[dict[str, Any]] = []
         async with conn.start_sftp_client() as sftp:
             async for entry in sftp.scandir(remote_path):
                 attrs = entry.attrs
-                entries.append(
+                all_entries.append(
                     {
                         "name": entry.filename,
                         "is_dir": attrs.type == asyncssh.FILEXFER_TYPE_DIRECTORY
@@ -445,4 +449,18 @@ class SSHConnectionPool:
                     }
                 )
 
-        return entries
+        total = len(all_entries)
+
+        if offset:
+            all_entries = all_entries[offset:]
+
+        has_more = False
+        if limit and limit > 0:
+            has_more = len(all_entries) > limit
+            all_entries = all_entries[:limit]
+
+        return {
+            "entries": all_entries,
+            "total": total,
+            "has_more": has_more,
+        }
