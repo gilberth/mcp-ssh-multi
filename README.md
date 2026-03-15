@@ -5,10 +5,15 @@ MCP server for managing multiple SSH servers through AI assistants. Provides 11 
 ## Features
 
 - **Multi-server management** — Configure and manage multiple SSH servers from a single YAML file
-- **Connection pooling** — Automatic connection reuse and reconnection
+- **Connection pooling** — Automatic connection reuse with per-server locks and retry on stale connections
 - **11 MCP tools** — Execute commands, transfer files, read/write files, tail logs, list processes
 - **Two transports** — stdio (for local MCP clients) and streamable-http (for web/remote)
 - **Cloudflare Tunnel compatible** — Deploy behind a tunnel for remote access
+- **MCP tool annotations** — Hints for destructive, read-only, idempotent, and open-world operations
+- **MCP resources** — `ssh://servers` resource for listing configured servers
+- **Pagination** — Directory listings support `limit`/`offset` for large directories
+- **Input validation** — Path and filter sanitization to prevent command injection
+- **Structured errors** — Consistent error responses with codes, messages, and suggestions
 
 ## Installation
 
@@ -151,7 +156,7 @@ For HTTP mode:
 | `ssh_upload` | Upload a local file to a remote server |
 | `ssh_download` | Download a file from a remote server |
 | `ssh_file_exists` | Check if a file/directory exists on a server |
-| `ssh_list_dir` | List contents of a remote directory |
+| `ssh_list_dir` | List contents of a remote directory (supports pagination with `limit`/`offset`) |
 | `ssh_read_file` | Read a text file from a remote server |
 | `ssh_write_file` | Write content to a file on a remote server |
 
@@ -161,6 +166,32 @@ For HTTP mode:
 |------|-------------|
 | `ssh_tail_log` | Tail a log file on a remote server |
 | `ssh_process_list` | List running processes (optionally filtered) |
+
+## MCP Resources
+
+The server exposes the following MCP resources:
+
+| Resource URI | Description |
+|-------------|-------------|
+| `ssh://servers` | List of all configured SSH servers with connection status |
+
+## Changelog
+
+### v0.2.0
+
+- **Per-server connection locks** — Replaced global lock with per-server async locks for better concurrency
+- **Connection retry** — Automatic single retry on stale/lost SSH connections
+- **MCP tool annotations** — Added `destructiveHint`, `readOnlyHint`, `idempotentHint`, `openWorldHint` to all tools
+- **MCP resource** — Added `ssh://servers` resource endpoint
+- **Directory pagination** — `ssh_list_dir` now supports `limit` and `offset` parameters
+- **Input validation** — Path sanitization for `ssh_tail_log` and filter validation for `ssh_process_list`
+- **Structured errors** — Consistent error format with `ErrorCode` enum across all tools
+- **Dynamic versioning** — Version sourced from `importlib.metadata` instead of hardcoded strings
+- **Test suite** — Added tests for pagination, retry logic, input validation, and version consistency
+
+### v0.1.1
+
+- Initial public release with 11 SSH tools, stdio and HTTP transports
 
 ## Production Deployment (LXC + Cloudflare Tunnel)
 
