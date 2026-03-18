@@ -33,10 +33,18 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         local_path: Annotated[str, Field(description="Local file path to upload")],
         remote_path: Annotated[str, Field(description="Remote destination path")],
     ) -> dict[str, Any]:
-        """Upload a file to a remote server via SFTP.
+        """Upload a local file to a remote server via SFTP.
+
+        Use this tool to transfer files FROM the local machine TO a remote SSH
+        server. This is the built-in file transfer mechanism — do NOT use scp
+        commands via ssh_execute; use this tool instead.
+
+        For server-to-server transfers, download from source first, then upload
+        to destination.
 
         EXAMPLES:
         - ssh_upload("proxmox", "/tmp/config.yaml", "/etc/app/config.yaml")
+        - ssh_upload("truenas", "/home/user/backup.sql", "/mnt/data/backup.sql")
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
@@ -68,10 +76,15 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         remote_path: Annotated[str, Field(description="Remote file path to download")],
         local_path: Annotated[str, Field(description="Local destination path")],
     ) -> dict[str, Any]:
-        """Download a file from a remote server via SFTP.
+        """Download a file from a remote server to the local machine via SFTP.
+
+        Use this tool to transfer files FROM a remote SSH server TO the local
+        machine. This is the built-in file transfer mechanism — do NOT use scp
+        commands via ssh_execute; use this tool instead.
 
         EXAMPLES:
         - ssh_download("truenas", "/var/log/syslog", "/tmp/syslog.txt")
+        - ssh_download("proxmox", "/etc/pve/qemu-server/100.conf", "/tmp/100.conf")
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
