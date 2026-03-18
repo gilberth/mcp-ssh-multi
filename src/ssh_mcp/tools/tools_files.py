@@ -15,7 +15,7 @@ from ..errors import (
     create_server_not_found_error,
     exception_to_structured_error,
 )
-from .helpers import log_tool_usage, validate_remote_path
+from .helpers import log_tool_usage
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -34,7 +34,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
             "For server-to-server transfers, download from source first, "
             "then upload to destination."
         ),
-        annotations={"destructiveHint": True, "openWorldHint": True},
     )
     @log_tool_usage
     async def ssh_upload(
@@ -45,13 +44,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """Upload a local file to a remote server via SFTP."""
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
             result = await pool.upload_file(server_name, local_path, remote_path)
             return {"success": True, "server_name": server_name, **result}
@@ -72,7 +64,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
             "Use this tool (NOT scp via ssh_execute) to transfer files "
             "FROM a remote SSH server TO the local machine."
         ),
-        annotations={"openWorldHint": True},
     )
     @log_tool_usage
     async def ssh_download(
@@ -83,13 +74,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """Download a file from a remote server to the local machine via SFTP."""
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
             result = await pool.download_file(server_name, remote_path, local_path)
             return {"success": True, "server_name": server_name, **result}
@@ -98,7 +82,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True})
     @log_tool_usage
     async def ssh_file_exists(
         server_name: Annotated[str, Field(description="Server name")],
@@ -113,13 +97,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
             result = await pool.file_exists(server_name, remote_path)
             return {"success": True, "server_name": server_name, **result}
@@ -128,7 +105,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True})
     @log_tool_usage
     async def ssh_list_dir(
         server_name: Annotated[str, Field(description="Server name")],
@@ -139,56 +116,32 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 default=".",
             ),
         ] = ".",
-        limit: Annotated[
-            int,
-            Field(
-                description="Max entries to return, 0 for all (default: 200)",
-                default=200,
-            ),
-        ] = 200,
-        offset: Annotated[
-            int,
-            Field(
-                description="Number of entries to skip (default: 0)",
-                default=0,
-            ),
-        ] = 0,
     ) -> dict[str, Any]:
         """List contents of a remote directory.
 
         Returns file names, types, sizes, and permissions.
-        Supports pagination with limit/offset for large directories.
 
         EXAMPLES:
         - ssh_list_dir("truenas", "/mnt/data")
         - ssh_list_dir("proxmox")  # lists home directory
-        - ssh_list_dir("proxmox", "/var/log", limit=50, offset=100)
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
-            result = await pool.list_dir(
-                server_name, remote_path, limit=limit, offset=offset
-            )
+            entries = await pool.list_dir(server_name, remote_path)
             return {
                 "success": True,
                 "server_name": server_name,
                 "path": remote_path,
-                **result,
+                "entries": entries,
+                "total": len(entries),
             }
         except Exception as e:
             return exception_to_structured_error(
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": True})
+    @mcp.tool(annotations={"readOnlyHint": True})
     @log_tool_usage
     async def ssh_read_file(
         server_name: Annotated[str, Field(description="Server name")],
@@ -212,13 +165,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
             content = await pool.read_file(server_name, remote_path, max_size=max_size)
             return {
@@ -233,7 +179,7 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 e, context={"server_name": server_name, "remote_path": remote_path}
             )
 
-    @mcp.tool(annotations={"destructiveHint": True, "openWorldHint": True})
+    @mcp.tool()
     @log_tool_usage
     async def ssh_write_file(
         server_name: Annotated[str, Field(description="Server name")],
@@ -249,13 +195,6 @@ def register_files_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
         """
         if not pool.get_server_config(server_name):
             return create_server_not_found_error(server_name)
-        path_err = validate_remote_path(remote_path)
-        if path_err:
-            return create_error_response(
-                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                f"Invalid remote path: {path_err}",
-                context={"remote_path": remote_path},
-            )
         try:
             result = await pool.write_file(server_name, remote_path, content)
             return {"success": True, "server_name": server_name, **result}
