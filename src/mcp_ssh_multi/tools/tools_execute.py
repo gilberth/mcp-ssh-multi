@@ -66,6 +66,7 @@ def register_execute_tools(mcp: FastMCP, pool: SSHConnectionPool) -> None:
                 "stdout": result["stdout"],
                 "stderr": result["stderr"],
                 "exit_code": result["exit_code"],
+                "truncated": result["truncated"],
             }
         except TimeoutError:
             return create_command_error(
