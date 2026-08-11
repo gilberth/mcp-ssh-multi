@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Server configuration
     timeout: int = Field(30, alias="SSH_TIMEOUT")
     max_retries: int = Field(3, alias="SSH_MAX_RETRIES")
+    max_output_bytes: int = Field(16 * 1024 * 1024, alias="SSH_MAX_OUTPUT_BYTES", gt=0)
 
     # Development/Debug configuration
     debug: bool = Field(False, alias="DEBUG")

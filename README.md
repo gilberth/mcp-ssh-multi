@@ -2,10 +2,14 @@
 
 MCP server for managing multiple SSH servers through AI assistants. Provides 11 tools for remote command execution, file operations, and system monitoring.
 
+**Current version: 0.4.0**
+
 ## Features
 
 - **Multi-server management** — Configure and manage multiple SSH servers from a single YAML file
 - **Connection pooling** — Automatic connection reuse with per-server locks and retry on stale connections
+- **Bounded command output** — Streams stdout/stderr with a configurable combined memory limit
+- **Timeout cleanup** — Terminates timed-out remote processes and explicitly closes their SSH channels
 - **11 MCP tools** — Execute commands, transfer files, read/write files, tail logs, list processes
 - **Two transports** — stdio (for local MCP clients) and streamable-http (for web/remote)
 - **Cloudflare Tunnel compatible** — Deploy behind a tunnel for remote access
@@ -78,6 +82,7 @@ cp .env.example .env
 |----------|---------|-------------|
 | `SSH_SERVERS_FILE` | `ssh_servers.yaml` | Path to servers config |
 | `SSH_TIMEOUT` | `30` | Default command timeout (seconds) |
+| `SSH_MAX_OUTPUT_BYTES` | `16777216` | Combined stdout/stderr retention limit per command |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `MCP_PORT` | `8086` | HTTP server port |
 | `MCP_SECRET_PATH` | `/mcp` | HTTP endpoint path |
@@ -149,6 +154,12 @@ For HTTP mode:
 |------|-------------|
 | `ssh_execute` | Execute a shell command on a remote server |
 
+`ssh_execute` streams stdout and stderr concurrently and retains at most
+`SSH_MAX_OUTPUT_BYTES` bytes across both streams. If the limit is exceeded, the
+remote process is terminated and the response includes `"truncated": true`.
+Commands which exceed their timeout are terminated, escalated to a kill when
+necessary, and have their SSH process channel explicitly closed.
+
 ### File Operations
 
 | Tool | Description |
@@ -176,6 +187,15 @@ The server exposes the following MCP resources:
 | `ssh://servers` | List of all configured SSH servers with connection status |
 
 ## Changelog
+
+### v0.4.0
+
+- **Bounded command output** — `ssh_execute` reads stdout and stderr concurrently in chunks and enforces the combined `SSH_MAX_OUTPUT_BYTES` limit
+- **Timeout process cleanup** — Timed-out commands are terminated, escalated to `kill()` when necessary, and their SSH channels are explicitly closed
+- **Truncation reporting** — Command responses expose `truncated` when output exceeds the configured limit
+- **Robust transport cleanup** — Connections which fail to close gracefully are aborted and invalidated instead of being returned to the pool
+- **Memory-efficient pagination** — SFTP directory pagination retains only the requested page while still reporting the total entry count
+- **Reproducible dependency ranges** — FastMCP, MCP, and AsyncSSH are constrained to the audited major versions
 
 ### v0.2.0
 
@@ -343,6 +363,7 @@ systemctl restart cloudflared
 |----------|---------|-------------|
 | `SSH_SERVERS_FILE` | `ssh_servers.yaml` | Path to servers config |
 | `SSH_TIMEOUT` | `30` | Default command timeout (seconds) |
+| `SSH_MAX_OUTPUT_BYTES` | `16777216` | Combined stdout/stderr retention limit per command |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `MCP_PORT` | `8086` | HTTP server port |
 | `MCP_SECRET_PATH` | `/mcp` | HTTP endpoint path (use a secret value) |

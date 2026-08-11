@@ -18,6 +18,11 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+WAIT_CLOSED_TIMEOUT = 5
+PROCESS_TERMINATE_TIMEOUT = 2
+DEFAULT_MAX_OUTPUT_BYTES = 16 * 1024 * 1024
+READ_CHUNK_SIZE = 64 * 1024
+
 
 @dataclass
 class ServerConfig:
@@ -54,6 +59,7 @@ class SSHConnectionPool:
         default_factory=dict, repr=False
     )
     _locks: dict[str, asyncio.Lock] = field(default_factory=dict, repr=False)
+    max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES
 
     def _get_server_lock(self, server_name: str) -> asyncio.Lock:
         """Get or create a lock for a specific server."""
@@ -62,7 +68,11 @@ class SSHConnectionPool:
         return self._locks[server_name]
 
     @classmethod
-    def from_yaml(cls, config_path: str) -> SSHConnectionPool:
+    def from_yaml(
+        cls,
+        config_path: str,
+        max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
+    ) -> SSHConnectionPool:
         """Load server configurations from a YAML file.
 
         Args:
@@ -78,14 +88,14 @@ class SSHConnectionPool:
         path = Path(config_path)
         if not path.exists():
             logger.warning(f"SSH servers config not found: {config_path}")
-            return cls()
+            return cls(max_output_bytes=max_output_bytes)
 
         with open(path) as f:
             raw = yaml.safe_load(f)
 
         if not raw or "servers" not in raw:
             logger.warning(f"No 'servers' key in {config_path}")
-            return cls()
+            return cls(max_output_bytes=max_output_bytes)
 
         servers: dict[str, ServerConfig] = {}
         for name, data in raw["servers"].items():
@@ -96,7 +106,7 @@ class SSHConnectionPool:
                 logger.error(f"Invalid server config for '{name}': {e}")
 
         logger.info(f"Loaded {len(servers)} server configurations from {config_path}")
-        return cls(servers=servers)
+        return cls(servers=servers, max_output_bytes=max_output_bytes)
 
     def list_servers(self) -> list[dict[str, Any]]:
         """List all configured servers with connection status.
@@ -197,7 +207,7 @@ class SSHConnectionPool:
         async with lock:
             conn = self._connections.pop(server_name, None)
             if conn is not None:
-                conn.close()
+                await self._close_connection(server_name, conn)
                 logger.info(f"Disconnected from {server_name}")
                 return True
             return False
@@ -207,6 +217,104 @@ class SSHConnectionPool:
         for name in list(self._connections.keys()):
             await self.disconnect(name)
         logger.info("Disconnected from all servers")
+
+    async def _close_connection(
+        self,
+        server_name: str,
+        conn: asyncssh.SSHClientConnection,
+    ) -> None:
+        """Close a connection, aborting it if graceful shutdown stalls."""
+        conn.close()
+        try:
+            await asyncio.wait_for(conn.wait_closed(), WAIT_CLOSED_TIMEOUT)
+        except asyncio.CancelledError:
+            conn.abort()
+            raise
+        except TimeoutError:
+            logger.warning(
+                "SSH connection to %s did not close gracefully; aborting transport",
+                server_name,
+            )
+            conn.abort()
+            try:
+                await asyncio.wait_for(conn.wait_closed(), 1)
+            except TimeoutError:
+                logger.error(
+                    "SSH transport to %s remained alive after abort", server_name
+                )
+
+    async def _invalidate_connection(
+        self,
+        server_name: str,
+        conn: asyncssh.SSHClientConnection,
+    ) -> None:
+        """Remove a specific pooled connection and close its transport."""
+        async with self._get_server_lock(server_name):
+            if self._connections.get(server_name) is conn:
+                self._connections.pop(server_name, None)
+        await self._close_connection(server_name, conn)
+
+    async def _close_process(
+        self,
+        server_name: str,
+        conn: asyncssh.SSHClientConnection,
+        process: asyncssh.SSHClientProcess[bytes],
+    ) -> None:
+        """Close a process channel and invalidate the connection if it stalls."""
+        process.close()
+        try:
+            await asyncio.wait_for(process.wait_closed(), WAIT_CLOSED_TIMEOUT)
+        except TimeoutError:
+            logger.warning(
+                "SSH process channel on %s did not close; aborting connection",
+                server_name,
+            )
+            conn.abort()
+            await self._invalidate_connection(server_name, conn)
+
+    async def _stop_process(
+        self,
+        process: asyncssh.SSHClientProcess[bytes],
+    ) -> None:
+        """Terminate a remote process, escalating to kill after a short grace period."""
+        try:
+            process.terminate()
+        except OSError:
+            pass
+
+        try:
+            await asyncio.wait_for(process.wait_closed(), PROCESS_TERMINATE_TIMEOUT)
+        except TimeoutError:
+            try:
+                process.kill()
+            except OSError:
+                pass
+
+    async def _read_process_output(
+        self,
+        stream: asyncssh.SSHReader[bytes],
+        output: bytearray,
+        state: dict[str, int | bool],
+        output_limit_reached: asyncio.Event,
+    ) -> None:
+        """Read a process stream without retaining more than the shared limit."""
+        while True:
+            chunk = await stream.read(READ_CHUNK_SIZE)
+            if not chunk:
+                return
+
+            remaining = self.max_output_bytes - int(state["bytes"])
+            if remaining <= 0:
+                state["truncated"] = True
+                output_limit_reached.set()
+                return
+
+            output.extend(chunk[:remaining])
+            state["bytes"] = int(state["bytes"]) + min(len(chunk), remaining)
+            if len(chunk) > remaining:
+                state["truncated"] = True
+                output_limit_reached.set()
+                return
 
     async def execute(
         self,
@@ -228,32 +336,81 @@ class SSHConnectionPool:
             Dictionary with stdout, stderr, and exit_code.
         """
         conn = await self.connect(server_name)
+        process: asyncssh.SSHClientProcess[bytes] | None = None
+        reader_tasks: list[asyncio.Task[None]] = []
+        watcher_tasks: list[asyncio.Task[Any]] = []
 
         try:
-            result = await asyncio.wait_for(
-                conn.run(command, check=False),
+            process = await conn.create_process(command, encoding=None)
+            stdout = bytearray()
+            stderr = bytearray()
+            state: dict[str, int | bool] = {"bytes": 0, "truncated": False}
+            output_limit_reached = asyncio.Event()
+            reader_tasks = [
+                asyncio.create_task(
+                    self._read_process_output(
+                        process.stdout, stdout, state, output_limit_reached
+                    )
+                ),
+                asyncio.create_task(
+                    self._read_process_output(
+                        process.stderr, stderr, state, output_limit_reached
+                    )
+                ),
+            ]
+            process_closed = asyncio.create_task(process.wait_closed())
+            limit_reached = asyncio.create_task(output_limit_reached.wait())
+            watcher_tasks = [process_closed, limit_reached]
+            done, _ = await asyncio.wait(
+                (process_closed, limit_reached),
                 timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
             )
+
+            if not done:
+                await self._stop_process(process)
+                raise TimeoutError(
+                    f"Command timed out after {timeout}s on {server_name}: {command}"
+                )
+
+            if limit_reached in done and output_limit_reached.is_set():
+                await self._stop_process(process)
+
+            await process.wait_closed()
+            await asyncio.gather(*reader_tasks)
+
+            return {
+                "stdout": stdout.decode("utf-8", errors="replace"),
+                "stderr": stderr.decode("utf-8", errors="replace"),
+                "exit_code": (
+                    process.exit_status if process.exit_status is not None else -1
+                ),
+                "truncated": bool(state["truncated"]),
+            }
         except TimeoutError as err:
-            raise TimeoutError(
-                f"Command timed out after {timeout}s on {server_name}: {command}"
-            ) from err
+            raise TimeoutError(str(err)) from err
         except (asyncssh.ConnectionLost, asyncssh.DisconnectError, OSError) as err:
             if _retried:
                 raise
             # Remove stale connection and retry once
             logger.warning(f"Connection lost to {server_name}, retrying: {err}")
-            async with self._get_server_lock(server_name):
-                self._connections.pop(server_name, None)
+            await self._invalidate_connection(server_name, conn)
             return await self.execute(
                 server_name, command, timeout=timeout, _retried=True
             )
-
-        return {
-            "stdout": result.stdout or "",
-            "stderr": result.stderr or "",
-            "exit_code": result.exit_status or 0,
-        }
+        finally:
+            for task in watcher_tasks:
+                if not task.done():
+                    task.cancel()
+            if watcher_tasks:
+                await asyncio.gather(*watcher_tasks, return_exceptions=True)
+            for task in reader_tasks:
+                if not task.done():
+                    task.cancel()
+            if reader_tasks:
+                await asyncio.gather(*reader_tasks, return_exceptions=True)
+            if process is not None:
+                await self._close_process(server_name, conn, process)
 
     async def upload_file(
         self,
@@ -415,9 +572,9 @@ class SSHConnectionPool:
                     "path": remote_path,
                     "is_dir": attrs.type == asyncssh.FILEXFER_TYPE_DIRECTORY,
                     "size": attrs.size,
-                    "permissions": oct(attrs.permissions)
-                    if attrs.permissions
-                    else None,
+                    "permissions": (
+                        oct(attrs.permissions) if attrs.permissions else None
+                    ),
                 }
             except (asyncssh.SFTPNoSuchFile, asyncssh.SFTPError):
                 return {"exists": False, "path": remote_path}
@@ -442,35 +599,32 @@ class SSHConnectionPool:
         """
         conn = await self.connect(server_name)
 
-        all_entries: list[dict[str, Any]] = []
+        entries: list[dict[str, Any]] = []
+        total = 0
         async with conn.start_sftp_client() as sftp:
             async for entry in sftp.scandir(remote_path):
-                attrs = entry.attrs
-                all_entries.append(
-                    {
-                        "name": entry.filename,
-                        "is_dir": attrs.type == asyncssh.FILEXFER_TYPE_DIRECTORY
-                        if attrs.type is not None
-                        else None,
-                        "size": attrs.size,
-                        "permissions": oct(attrs.permissions)
-                        if attrs.permissions
-                        else None,
-                    }
-                )
+                if total >= offset and (not limit or len(entries) < limit):
+                    attrs = entry.attrs
+                    entries.append(
+                        {
+                            "name": entry.filename,
+                            "is_dir": (
+                                attrs.type == asyncssh.FILEXFER_TYPE_DIRECTORY
+                                if attrs.type is not None
+                                else None
+                            ),
+                            "size": attrs.size,
+                            "permissions": (
+                                oct(attrs.permissions) if attrs.permissions else None
+                            ),
+                        }
+                    )
+                total += 1
 
-        total = len(all_entries)
-
-        if offset:
-            all_entries = all_entries[offset:]
-
-        has_more = False
-        if limit and limit > 0:
-            has_more = len(all_entries) > limit
-            all_entries = all_entries[:limit]
+        has_more = bool(limit and total > offset + len(entries))
 
         return {
-            "entries": all_entries,
+            "entries": entries,
             "total": total,
             "has_more": has_more,
         }
