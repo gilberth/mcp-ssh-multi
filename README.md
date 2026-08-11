@@ -78,6 +78,7 @@ cp .env.example .env
 |----------|---------|-------------|
 | `SSH_SERVERS_FILE` | `ssh_servers.yaml` | Path to servers config |
 | `SSH_TIMEOUT` | `30` | Default command timeout (seconds) |
+| `SSH_MAX_OUTPUT_BYTES` | `16777216` | Combined stdout/stderr retention limit per command |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `MCP_PORT` | `8086` | HTTP server port |
 | `MCP_SECRET_PATH` | `/mcp` | HTTP endpoint path |
@@ -343,6 +344,7 @@ systemctl restart cloudflared
 |----------|---------|-------------|
 | `SSH_SERVERS_FILE` | `ssh_servers.yaml` | Path to servers config |
 | `SSH_TIMEOUT` | `30` | Default command timeout (seconds) |
+| `SSH_MAX_OUTPUT_BYTES` | `16777216` | Combined stdout/stderr retention limit per command |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `MCP_PORT` | `8086` | HTTP server port |
 | `MCP_SECRET_PATH` | `/mcp` | HTTP endpoint path (use a secret value) |

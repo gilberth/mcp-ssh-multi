@@ -8,6 +8,26 @@ import pytest
 from mcp_ssh_multi.client.ssh_client import ServerConfig, SSHConnectionPool
 
 
+class BytesReader:
+    """Minimal async byte stream used by process mocks."""
+
+    def __init__(self, content: bytes = b""):
+        self._content = content
+
+    async def read(self, size: int) -> bytes:
+        content, self._content = self._content[:size], self._content[size:]
+        return content
+
+
+def make_process(stdout: bytes = b"ok", stderr: bytes = b"", exit_status: int = 0):
+    process = MagicMock()
+    process.stdout = BytesReader(stdout)
+    process.stderr = BytesReader(stderr)
+    process.exit_status = exit_status
+    process.wait_closed = AsyncMock(return_value=None)
+    return process
+
+
 class TestPerServerLock:
     def test_get_lock_returns_same_lock_for_same_server(self):
         pool = SSHConnectionPool()
@@ -30,19 +50,16 @@ class TestRetryLogic:
             servers={"test": ServerConfig(name="test", host="localhost")}
         )
 
-        mock_result = MagicMock()
-        mock_result.stdout = "ok"
-        mock_result.stderr = ""
-        mock_result.exit_status = 0
-
         # First call: raises ConnectionLost. Second call: works.
-        bad_conn = AsyncMock()
+        bad_conn = MagicMock()
         bad_conn.is_closed.return_value = True
-        bad_conn.run.side_effect = asyncssh.ConnectionLost("lost")
+        bad_conn.create_process = AsyncMock(side_effect=asyncssh.ConnectionLost("lost"))
+        bad_conn.wait_closed = AsyncMock()
 
-        good_conn = AsyncMock()
+        good_conn = MagicMock()
         good_conn.is_closed.return_value = False
-        good_conn.run.return_value = mock_result
+        good_conn.create_process = AsyncMock(return_value=make_process())
+        good_conn.wait_closed = AsyncMock()
 
         with patch("asyncssh.connect", AsyncMock(return_value=good_conn)):
             # Pre-load the bad connection so connect() returns it first
@@ -62,9 +79,10 @@ class TestRetryLogic:
             servers={"test": ServerConfig(name="test", host="localhost")}
         )
 
-        bad_conn = AsyncMock()
+        bad_conn = MagicMock()
         bad_conn.is_closed.return_value = False
-        bad_conn.run.side_effect = asyncssh.ConnectionLost("lost")
+        bad_conn.create_process = AsyncMock(side_effect=asyncssh.ConnectionLost("lost"))
+        bad_conn.wait_closed = AsyncMock()
 
         with patch("asyncssh.connect", AsyncMock(return_value=bad_conn)):
             pool._connections["test"] = bad_conn

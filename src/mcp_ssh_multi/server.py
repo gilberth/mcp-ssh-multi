@@ -55,7 +55,10 @@ class SSHMCPServer:
         if self._pool is None:
             from .client.ssh_client import SSHConnectionPool
 
-            self._pool = SSHConnectionPool.from_yaml(self.settings.ssh_servers_file)
+            self._pool = SSHConnectionPool.from_yaml(
+                self.settings.ssh_servers_file,
+                max_output_bytes=self.settings.max_output_bytes,
+            )
             logger.debug(
                 f"Lazily created SSHConnectionPool from {self.settings.ssh_servers_file}"
             )
